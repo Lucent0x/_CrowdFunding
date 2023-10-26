@@ -10,14 +10,17 @@ contract CrowdFunding {
     // Default token for transactions
     ERC20 public enscToken;
 
-    constructor ( ERC20 _enscToken,  address _wallet ) {
+    constructor(ERC20 _enscToken, address _wallet) {
         enscToken = _enscToken;
         admin = payable(msg.sender);
         wallet = payable(_wallet);
     }
 
-    modifier onlyOwner ( ) {
-        require(msg.sender == admin, "only this contract deployer can invoke this function");
+    modifier onlyOwner() {
+        require(
+            msg.sender == admin,
+            "only this contract deployer can invoke this function"
+        );
         _;
     }
     struct Campaign {
@@ -37,16 +40,19 @@ contract CrowdFunding {
     uint256 public numberOfCampaigns = 0;
 
     function createCampaign(
-        address _owner, 
-        string memory _title, 
-        string memory _description, 
-        uint256 _target, 
-        uint256 _deadline, 
+        address _owner,
+        string memory _title,
+        string memory _description,
+        uint256 _target,
+        uint256 _deadline,
         string memory _image
-        ) public onlyOwner returns (uint256) {
+    ) public onlyOwner returns (uint256) {
         Campaign storage campaign = campaigns[numberOfCampaigns];
 
-        require(campaign.deadline < block.timestamp, "The deadline should be a date in the future.");
+        require(
+            campaign.deadline > block.timestamp,
+            "The deadline should be a date in the future."
+        );
 
         campaign.owner = _owner;
         campaign.title = _title;
@@ -63,35 +69,53 @@ contract CrowdFunding {
 
     function donateToCampaign(uint256 _id, uint256 _amount) public payable {
         uint256 amount = _amount;
-        require( amount > 0, "you can't donate zero");
-        require(enscToken.allowance(msg.sender, address(this)) >= amount,
-         "Insufficent allowance for this contract to spend user ENSC balance");
-        require(enscToken.balanceOf(msg.sender) >= amount,
-         "User doesn't have enough ENSC Tokens to spend" ); 
+        require(amount > 0, "you can't donate zero");
+        require(
+            enscToken.allowance(msg.sender, address(this)) >= amount,
+            "Insufficent allowance for this contract to spend user ENSC balance"
+        );
+        require(
+            enscToken.balanceOf(msg.sender) >= amount,
+            "User doesn't have enough ENSC Tokens to spend"
+        );
         Campaign storage campaign = campaigns[_id];
-         require(campaign.deadline <= block.timestamp, " donation duration is over!");
+        require(
+            campaign.deadline <= block.timestamp,
+            " donation duration is over!"
+        );
+        require(
+            campaign.amountCollected <= campaign.target,
+            "this campagin target amount is complete"
+        );
+
         campaign.donators.push(msg.sender);
         campaign.donations.push(amount);
-
-        bool sent = enscToken.transferFrom(msg.sender, wallet, amount);
-        require(sent, "Failed to transfer ENSC Token from user to contract");
+        //move all funds to the contract wallet address
+        forwardFunds(amount);
         campaign.amountCollected = campaign.amountCollected + amount;
-
     }
 
-    function getDonators(uint256 _id) view public returns (address[] memory, uint256[] memory) {
+    function getDonators(
+        uint256 _id
+    ) public view returns (address[] memory, uint256[] memory) {
         return (campaigns[_id].donators, campaigns[_id].donations);
     }
 
     function getCampaigns() public view returns (Campaign[] memory) {
         Campaign[] memory allCampaigns = new Campaign[](numberOfCampaigns);
 
-        for(uint i = 0; i < numberOfCampaigns; i++) {
+        for (uint i = 0; i < numberOfCampaigns; i++) {
             Campaign storage item = campaigns[i];
 
             allCampaigns[i] = item;
         }
 
         return allCampaigns;
+    }
+
+    function forwardFunds(uint256 amount) internal {
+        bool sent = enscToken.transferFrom(msg.sender, wallet, amount);
+        require(sent, "Failed to transfer ENSC Token from user to contract");
+        wallet.transfer(msg.value);
     }
 }
