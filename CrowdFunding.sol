@@ -35,7 +35,7 @@ contract CrowdFunding {
         uint256[] donations;
     }
 
-    mapping(uint256 => mapping(address => bool)) public isDonator;
+    mapping( uint256 => mapping(address => bool )) public isDonator;
     mapping(uint256 => Campaign) public campaigns;
 
     uint256 public numberOfCampaigns = 0;
@@ -50,16 +50,12 @@ contract CrowdFunding {
     ) public onlyOwner returns (uint256) {
         Campaign storage campaign = campaigns[numberOfCampaigns];
 
-        require(
-            campaign.deadline > block.timestamp,
-            "The deadline should be a date in the future."
-        );
-
+      
         campaign.owner = _owner;
         campaign.title = _title;
         campaign.description = _description;
         campaign.target = _target;
-        campaign.deadline = _deadline;
+        campaign.deadline =  block.timestamp + _deadline;
         campaign.amountCollected = 0;
         campaign.image = _image;
 
@@ -71,7 +67,7 @@ contract CrowdFunding {
     function donateToCampaign(uint256 _id, uint256 _amount) public payable {
         uint256 amount = _amount;
         require(amount > 0, "you can't donate zero");
-
+        
         require(
             enscToken.allowance(msg.sender, address(this)) >= amount,
             "Insufficent allowance for this contract to spend user ENSC balance"
@@ -88,7 +84,7 @@ contract CrowdFunding {
             "this address is already added as a donator"
         );
         require(
-            campaign.deadline <= block.timestamp,
+            campaign.deadline >= block.timestamp,
             " donation duration is over!"
         );
         require(
